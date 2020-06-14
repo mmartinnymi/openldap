@@ -1646,6 +1646,8 @@ typedef struct slap_bindconf {
 #endif
 	int sb_tls_do_init;
 #endif
+	char *sb_nymi_agent;
+	char *sb_nymi_nes;
 } slap_bindconf;
 
 typedef struct slap_verbmasks {

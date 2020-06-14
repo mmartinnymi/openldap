@@ -60,7 +60,9 @@ BerVarray default_referral = NULL;
  */
 ldap_pvt_thread_pool_t	connection_pool;
 int			connection_pool_max = SLAP_MAX_WORKER_THREADS;
-int		slap_tool_thread_max = 1;
+int			slap_tool_thread_max = 1;
+char* 			nymi_agent = NULL;
+char*			nymi_nes = NULL;
 
 slap_counters_t			slap_counters, *slap_counters_list;
 

@@ -30,7 +30,11 @@
 
 #include <ac/string.h>
 #include <ac/socket.h>
+#include <errno.h>
+#include <unistd.h>
+#include <stdbool.h>
 
+#include "nymi.h"
 #include "slap.h"
 
 int
@@ -307,18 +311,57 @@ fe_op_bind( Operation *op, SlapReply *rs )
 				/* cred is not empty, disallow */
 				rs->sr_err = LDAP_INVALID_CREDENTIALS;
 
-			} else if ( !BER_BVISEMPTY( &op->o_req_ndn ) &&
-				!( global_allows & SLAP_ALLOW_BIND_ANON_DN ))
+			} else if ( !BER_BVISEMPTY( &op->o_req_ndn ) && !( global_allows & SLAP_ALLOW_BIND_ANON_DN ))
 			{
-				/* DN is not empty, disallow */
-				rs->sr_err = LDAP_UNWILLING_TO_PERFORM;
-				rs->sr_text =
-					"unauthenticated bind (DN with no password) disallowed";
+				// Replace DN + blank password response with attempt to run Nymi authentication
+				//
 
-			} else if ( global_disallows & SLAP_DISALLOW_BIND_ANON ) {
-				/* disallow */
-				rs->sr_err = LDAP_INAPPROPRIATE_AUTH;
-				rs->sr_text = "anonymous bind disallowed";
+				Debug ( LDAP_DEBUG_TRACE, "Nymi: Attempting Nymi Band authentication.\n",0 ,0 ,0 );
+
+#if defined(LDAP_PF_INET6)
+				char addr[INET6_ADDRSTRLEN];
+#else
+				char addr[INET_ADDRSTRLEN];
+#endif
+				char* peeraddr_string;
+				struct sockaddr_in peeraddr;
+				socklen_t slen = sizeof(peeraddr);
+
+				while (true)
+				{
+					int retcode = getpeername(op->o_conn->c_sd, (struct sockaddr*)&peeraddr, &slen);
+					if (retcode != 0)
+						if (errno == 11)
+						{
+							Debug( LDAP_DEBUG_TRACE, "Nymi: inbound connection socket not ready, retrying\n",0 , 0, 0 );
+(struct sockaddr*)							sleep (1);
+							continue;
+						}
+						else
+						{
+							Debug( LDAP_DEBUG_TRACE, "Nymi: Failed to get socket address with %d\n", errno, 0, 0 );
+							goto cleanup;
+						}
+					else
+						break;
+				}
+
+				peeraddr_string = inet_ntoa( peeraddr.sin_addr );
+
+				Debug( LDAP_DEBUG_TRACE, "Nymi: Got peer address from socket: %s\n", peeraddr_string, 0, 0 );
+
+				if (nymiauth(op, peeraddr_string))
+				{		
+					Debug( LDAP_DEBUG_TRACE, "Nymi: authentication success\n", 0, 0, 0 );
+					(void)fe_op_bind_success( op, rs );
+					goto cleanup;
+				}
+				else
+				{
+					Debug( LDAP_DEBUG_TRACE, "Nymi: authentication failure\n", 0, 0, 0 );
+					rs->sr_err = LDAP_INVALID_CREDENTIALS;
+					goto cleanup;
+				}
 
 			} else {
 				backend_check_restrictions( op, rs, &op->orb_mech );

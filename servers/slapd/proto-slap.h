@@ -2048,6 +2048,10 @@ LDAP_SLAPD_V (char *)		slapd_pid_file;
 LDAP_SLAPD_V (char *)		slapd_args_file;
 LDAP_SLAPD_V (time_t)		starttime;
 
+// NYMI GLOBALS
+LDAP_SLAPD_V (char *)           nymi_agent;
+LDAP_SLAPD_V (char *)           nymi_nes;
+
 /* use time(3) -- no mutex */
 #define slap_get_time()	time( NULL )
 

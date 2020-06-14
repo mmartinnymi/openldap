@@ -1434,6 +1434,8 @@ static slap_cf_aux_table bindkey[] = {
 	{ BER_BVC("tls_crlcheck="), offsetof(slap_bindconf, sb_tls_crlcheck), 's', 0, NULL },
 #endif
 #endif
+	{ BER_BVC("nymi_agent="), offsetof(slap_bindconf, sb_nymi_agent), 's', 0, NULL },
+	{ BER_BVC("nymi_nes="), offsetof(slap_bindconf, sb_nymi_nes), 's', 0, NULL },
 	{ BER_BVNULL, 0, 0, 0, NULL }
 };
 

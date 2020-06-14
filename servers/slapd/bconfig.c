@@ -195,6 +195,8 @@ enum {
 	CFG_SYNC_SUBENTRY,
 	CFG_LTHREADS,
 	CFG_TLS_ECNAME,
+	CFG_NYMI_AGENT,
+	CFG_NYMI_NES,
 	CFG_LAST
 };
 
@@ -468,6 +470,16 @@ static ConfigTable config_back_cf_table[] = {
 		ARG_MAGIC|CFG_MONITORING|ARG_DB|ARG_ON_OFF, &config_generic,
 		"( OLcfgDbAt:0.18 NAME 'olcMonitoring' "
 			"SYNTAX OMsBoolean SINGLE-VALUE )", NULL, NULL },
+	// NYMI OPTIONS
+        { "nymi_agent", "uri", 2, 2, 0,
+                CFG_NYMI_AGENT|ARG_STRING, &nymi_agent,
+                "( OLcfgGlAt:97 NAME 'olcNymiAgent' "
+                        "SYNTAX OMsIA5String SINGLE-VALUE )", NULL, NULL },
+        { "nymi_nes", "host or ip", 2, 2, 0,
+                CFG_NYMI_NES|ARG_STRING, &nymi_nes,
+                "( OLcfgGlAt:98 NAME 'olcNymiNes' "
+                        "SYNTAX OMsIA5String SINGLE-VALUE )", NULL, NULL },
+	// NYMI OPTIONS
 	{ "objectclass", "objectclass", 2, 0, 0, ARG_PAREN|ARG_MAGIC|CFG_OC,
 		&config_generic, "( OLcfgGlAt:32 NAME 'olcObjectClasses' "
 		"DESC 'OpenLDAP object classes' "
@@ -769,6 +781,7 @@ static ConfigTable config_back_cf_table[] = {
 	{ "writetimeout", "timeout", 2, 2, 0, ARG_INT,
 		&global_writetimeout, "( OLcfgGlAt:88 NAME 'olcWriteTimeout' "
 			"SYNTAX OMsInteger SINGLE-VALUE )", NULL, NULL },
+
 	{ NULL,	NULL, 0, 0, 0, ARG_IGNORED,
 		NULL, NULL, NULL, NULL }
 };
@@ -830,7 +843,7 @@ static ConfigOCs cf_ocs[] = {
 		 "olcTLSRandFile $ olcTLSVerifyClient $ olcTLSDHParamFile $ olcTLSECName $ "
 		 "olcTLSCRLFile $ olcTLSProtocolMin $ olcToolThreads $ olcWriteTimeout $ "
 		 "olcObjectIdentifier $ olcAttributeTypes $ olcObjectClasses $ "
-		 "olcDitContentRules $ olcLdapSyntaxes ) )", Cft_Global },
+		 "olcDitContentRules $ olcLdapSyntaxes $ olcNymiAgent $ olcNymiNes) )", Cft_Global },
 	{ "( OLcfgGlOc:2 "
 		"NAME 'olcSchemaConfig' "
 		"DESC 'OpenLDAP schema object' "
@@ -919,6 +932,12 @@ config_generic(ConfigArgs *c) {
 	if ( c->op == SLAP_CONFIG_EMIT ) {
 		int rc = 0;
 		switch(c->type) {
+		case CFG_NYMI_AGENT:
+			c->value_string = ch_strdup( nymi_agent );
+			break;
+		case CFG_NYMI_NES:
+			c->value_string = ch_strdup( nymi_nes );
+			break;
 		case CFG_CONCUR:
 			c->value_int = ldap_pvt_thread_get_concurrency();
 			break;
@@ -1229,6 +1248,8 @@ config_generic(ConfigArgs *c) {
 		int rc = 0;
 		switch(c->type) {
 		/* single-valued attrs, no-ops */
+                case CFG_NYMI_AGENT:
+                case CFG_NYMI_NES:
 		case CFG_CONCUR:
 		case CFG_THREADS:
 		case CFG_TTHREADS:
@@ -1509,6 +1530,14 @@ config_generic(ConfigArgs *c) {
 	}
 
 	switch(c->type) {
+                case CFG_NYMI_AGENT:
+                        nymi_agent = ch_strdup( c->value_string );
+                        break;
+
+                case CFG_NYMI_NES:
+                        nymi_nes = ch_strdup( c->value_string );
+                        break;
+
 		case CFG_BACKEND:
 			if(!(c->bi = backend_info(c->argv[1]))) {
 				snprintf( c->cr_msg, sizeof( c->cr_msg ), "<%s> failed init", c->argv[0] );
@@ -2131,7 +2160,6 @@ sortval_reject:
 			return rc;
 			}
 #endif
-
 
 		default:
 			Debug( LDAP_DEBUG_ANY,

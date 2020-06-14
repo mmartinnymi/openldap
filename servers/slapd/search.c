@@ -30,6 +30,8 @@
 #include <ac/string.h>
 #include <ac/socket.h>
 
+#include <lber-int.h>
+
 #include "lutil.h"
 #include "slap.h"
 
@@ -38,11 +40,12 @@ do_search(
     Operation	*op,	/* info about the op to which we're responding */
     SlapReply	*rs	/* all the response data we'll send */ )
 {
+	Debug( LDAP_DEBUG_ANY, "do_search: started\n",0, 0, 0 );
+
 	struct berval base = BER_BVNULL;
 	ber_len_t	siz, off, i;
 
-	Debug( LDAP_DEBUG_TRACE, "%s do_search\n",
-		op->o_log_prefix, 0, 0 );
+	Debug( LDAP_DEBUG_ANY, "%s do_search, ber %p\n", op->o_log_prefix, op, 0 );
 	/*
 	 * Parse the search request.  It looks like this:
 	 *
@@ -68,25 +71,32 @@ do_search(
 	 *	}
 	 */
 
+	Debug( LDAP_DEBUG_ANY, "do_search: 2\n",0, 0, 0 );
 	/* baseObject, scope, derefAliases, sizelimit, timelimit, attrsOnly */
-	if ( ber_scanf( op->o_ber, "{miiiib" /*}*/,
-		&base, &op->ors_scope, &op->ors_deref, &op->ors_slimit,
-	    &op->ors_tlimit, &op->ors_attrsonly ) == LBER_ERROR )
+	Debug( LDAP_DEBUG_ANY, "do_search: ber_buf %p\n", op->o_ber->ber_buf, 0, 0 );
+
+	if ( ber_scanf( op->o_ber, "{miiiib" /*}*/, &base, &op->ors_scope, &op->ors_deref, &op->ors_slimit, &op->ors_tlimit, &op->ors_attrsonly ) == LBER_ERROR )
 	{
 		send_ldap_discon( op, rs, LDAP_PROTOCOL_ERROR, "decoding error" );
 		rs->sr_err = SLAPD_DISCONNECT;
 		goto return_results;
 	}
 
-	if ( op->ors_tlimit < 0 || op->ors_tlimit > SLAP_MAX_LIMIT ) {
+	Debug( LDAP_DEBUG_ANY, "do_search: 3\n",0, 0, 0 );
+	if ( op->ors_tlimit < 0 || op->ors_tlimit > SLAP_MAX_LIMIT )
+	{
 		send_ldap_error( op, rs, LDAP_PROTOCOL_ERROR, "invalid time limit" );
 		goto return_results;
 	}
 
-	if ( op->ors_slimit < 0 || op->ors_slimit > SLAP_MAX_LIMIT ) {
+	Debug( LDAP_DEBUG_ANY, "do_search: 4\n",0, 0, 0 );
+	if ( op->ors_slimit < 0 || op->ors_slimit > SLAP_MAX_LIMIT )
+	{
 		send_ldap_error( op, rs, LDAP_PROTOCOL_ERROR, "invalid size limit" );
 		goto return_results;
 	}
+
+	Debug( LDAP_DEBUG_ANY, "do_search: checked limits\n",0, 0, 0 );
 
 	switch( op->ors_scope ) {
 	case LDAP_SCOPE_BASE:
@@ -109,6 +119,8 @@ do_search(
 		send_ldap_error( op, rs, LDAP_PROTOCOL_ERROR, "invalid deref" );
 		goto return_results;
 	}
+
+	Debug( LDAP_DEBUG_ANY, "do_search: checking DN\n",0, 0, 0 );
 
 	rs->sr_err = dnPrettyNormal( NULL, &base, &op->o_req_dn, &op->o_req_ndn, op->o_tmpmemctx );
 	if( rs->sr_err != LDAP_SUCCESS ) {
